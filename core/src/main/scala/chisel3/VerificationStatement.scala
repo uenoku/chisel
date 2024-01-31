@@ -153,8 +153,8 @@ object assert extends VerifPrintMacrosDoc {
   ): Assert = {
     val id = new Assert()
     when(!Module.reset.asBool) {
-      failureMessage("Assertion", line, cond, message.map(Printable.pack(_, data: _*)))
-      Builder.pushCommand(Verification(id, Formal.Assert, sourceInfo, Module.clock.ref, cond.ref, ""))
+      val pable = failureMessage("Assertion", line, cond, message.map(Printable.pack(_, data: _*)))
+      Builder.pushCommand(Verification(id, Formal.Assert, sourceInfo, Module.clock.ref, cond.ref, pable))
     }
     id
   }
@@ -170,8 +170,8 @@ object assert extends VerifPrintMacrosDoc {
     val id = new Assert()
     message.foreach(Printable.checkScope(_))
     when(!Module.reset.asBool) {
-      failureMessage("Assertion", line, cond, message)
-      Builder.pushCommand(Verification(id, Formal.Assert, sourceInfo, Module.clock.ref, cond.ref, ""))
+      val pable = failureMessage("Assertion", line, cond, message)
+      Builder.pushCommand(Verification(id, Formal.Assert, sourceInfo, Module.clock.ref, cond.ref, pable))
     }
     id
   }
@@ -308,8 +308,8 @@ object assume extends VerifPrintMacrosDoc {
   ): Assume = {
     val id = new Assume()
     when(!Module.reset.asBool) {
-      failureMessage("Assumption", line, cond, message.map(Printable.pack(_, data: _*)))
-      Builder.pushCommand(Verification(id, Formal.Assume, sourceInfo, Module.clock.ref, cond.ref, ""))
+      val pable = failureMessage("Assumption", line, cond, message.map(Printable.pack(_, data: _*)))
+      Builder.pushCommand(Verification(id, Formal.Assume, sourceInfo, Module.clock.ref, cond.ref, pable))
     }
     id
   }
@@ -325,8 +325,8 @@ object assume extends VerifPrintMacrosDoc {
     val id = new Assume()
     message.foreach(Printable.checkScope(_))
     when(!Module.reset.asBool) {
-      failureMessage("Assumption", line, cond, message)
-      Builder.pushCommand(Verification(id, Formal.Assume, sourceInfo, Module.clock.ref, cond.ref, ""))
+      val pable = failureMessage("Assumption", line, cond, message)
+      Builder.pushCommand(Verification(id, Formal.Assume, sourceInfo, Module.clock.ref, cond.ref, pable))
     }
     id
   }
@@ -439,16 +439,13 @@ private object VerificationStatement {
     message:  Option[Printable]
   )(
     implicit sourceInfo: SourceInfo
-  ): Unit = {
+  ): Printable = {
     val (filename, line, content) = lineInfo
     val lineMsg = s"$filename:$line $content".replaceAll("%", "%%")
-    val fmt = message match {
+    message match {
       case Some(msg) =>
         p"$kind failed: $msg\n    at $lineMsg\n"
       case None => p"$kind failed\n    at $lineMsg\n"
-    }
-    when(!cond) {
-      printf.printfWithoutReset(fmt)
     }
   }
 }
