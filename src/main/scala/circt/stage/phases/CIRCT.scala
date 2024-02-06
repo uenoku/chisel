@@ -205,7 +205,7 @@ class CIRCT extends Phase {
     val binary = "firtool"
 
     val cmd =
-      Seq(binary, "-format=fir", "-warn-on-unprocessed-annotations", "-dedup") ++
+      Seq(binary, "-format=fir", "-warn-on-unprocessed-annotations") ++
         Seq("-output-annotation-file", circtAnnotationFilename) ++
         circtOptions.firtoolOptions ++
         logLevel.toCIRCTOptions ++
@@ -217,7 +217,6 @@ class CIRCT extends Phase {
           case None                              => None
         }) ++
         circtOptions.preserveAggregate.map(_ => "-preserve-public-types=0") ++
-        (!inferReadWrite).option("-disable-infer-rw") ++
         (!imcp).option("-disable-imcp") ++
         /* Communicate the annotation file through a file. */
         (chiselAnnotationFilename.map(a => Seq("-annotation-file", a))).getOrElse(Seq.empty) ++
