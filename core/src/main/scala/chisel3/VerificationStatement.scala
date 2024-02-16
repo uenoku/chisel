@@ -62,12 +62,21 @@ object assert extends VerifPrintMacrosDoc {
     *
     * @param cond condition, assertion fires (simulation fails) on a rising clock edge when false and reset is not asserted
     * @param message optional chisel Printable type message
+    * @param label optional label for the assertion
     *
     * @note See [[printf.apply(pable:chisel3\.Printable)*]] for documentation on printf using Printables
     * @note currently cannot be used in core Chisel / libraries because macro
     * defs need to be compiled first and the SBT project is not set up to do
     * that
     */
+  def apply(
+    cond:    Bool,
+    message: Printable,
+    label:   String
+  )(
+    implicit sourceInfo: SourceInfo
+  ): Assert = macro _applyMacroWithPrintableMessageAndLabel
+
   def apply(
     cond:    Bool,
     message: Printable
@@ -91,7 +100,7 @@ object assert extends VerifPrintMacrosDoc {
     import c.universe._
     printf._checkFormatString(c)(message)
     val apply_impl_do = symbolOf[this.type].asClass.module.info.member(TermName("_applyWithSourceLinePrintable"))
-    q"$apply_impl_do($cond, ${getLine(c)}, _root_.scala.Some(_root_.chisel3.Printable.pack($message, ..$data)))($sourceInfo)"
+    q"$apply_impl_do($cond, ${getLine(c)}, _root_.scala.Some(_root_.chisel3.Printable.pack($message, ..$data)), _root_.scala.None)($sourceInfo)"
   }
 
   /** An elaboration-time assertion. Calls the built-in Scala assert function. */
@@ -113,7 +122,7 @@ object assert extends VerifPrintMacrosDoc {
   ): c.Tree = {
     import c.universe._
     val apply_impl_do = symbolOf[this.type].asClass.module.info.member(TermName("_applyWithSourceLinePrintable"))
-    q"$apply_impl_do($cond, ${getLine(c)},_root_.scala.Some(_root_.chisel3.Printable.pack($message,..$data)))($sourceInfo)"
+    q"$apply_impl_do($cond, ${getLine(c)},_root_.scala.Some(_root_.chisel3.Printable.pack($message,..$data)), _root_.scala.None)($sourceInfo)"
   }
 
   /** @group VerifPrintMacros */
@@ -125,7 +134,20 @@ object assert extends VerifPrintMacrosDoc {
   ): c.Tree = {
     import c.universe._
     val apply_impl_do = symbolOf[this.type].asClass.module.info.member(TermName("_applyWithSourceLinePrintable"))
-    q"$apply_impl_do($cond, ${getLine(c)}, _root_.scala.Some($message))($sourceInfo)"
+    q"$apply_impl_do($cond, ${getLine(c)}, _root_.scala.Some($message), _root_.scala.None)($sourceInfo)"
+  }
+
+  /** @group VerifPrintMacros */
+  def _applyMacroWithPrintableMessageAndLabel(
+    c:          blackbox.Context
+  )(cond:       c.Tree,
+    message:    c.Tree,
+    label:      c.Tree
+  )(sourceInfo: c.Tree
+  ): c.Tree = {
+    import c.universe._
+    val apply_impl_do = symbolOf[this.type].asClass.module.info.member(TermName("_applyWithSourceLinePrintable"))
+    q"$apply_impl_do($cond, ${getLine(c)}, _root_.scala.Some($message), _root_.scala.Some($label))($sourceInfo)"
   }
 
   /** @group VerifPrintMacros */
@@ -136,7 +158,7 @@ object assert extends VerifPrintMacrosDoc {
   ): c.Tree = {
     import c.universe._
     val apply_impl_do = symbolOf[this.type].asClass.module.info.member(TermName("_applyWithSourceLinePrintable"))
-    q"$apply_impl_do($cond, ${getLine(c)}, _root_.scala.None)($sourceInfo)"
+    q"$apply_impl_do($cond, ${getLine(c)}, _root_.scala.None, _root_.scala.None)($sourceInfo)"
   }
 
   /** This will be removed in Chisel 3.6 in favor of the Printable version
@@ -163,7 +185,8 @@ object assert extends VerifPrintMacrosDoc {
   def _applyWithSourceLinePrintable(
     cond:    Bool,
     line:    SourceLineInfo,
-    message: Option[Printable]
+    message: Option[Printable],
+    label:   Option[String]
   )(
     implicit sourceInfo: SourceInfo
   ): Assert = {
@@ -348,6 +371,7 @@ object cover extends VerifPrintMacrosDoc {
     *
     * @param cond condition that will be sampled on every clock tick
     * @param message a string describing the cover event
+    * @param label optional label for the cover event
     */
   // Macros currently can't take default arguments, so we need two functions to emulate defaults.
   def apply(cond: Bool, message: String)(implicit sourceInfo: SourceInfo): Cover =

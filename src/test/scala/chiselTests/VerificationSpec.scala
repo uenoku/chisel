@@ -17,7 +17,7 @@ class SimpleTest extends Module {
   cover(io.in === 3.U)
   when(io.in === 3.U) {
     assume(io.in =/= 2.U)
-    assert(io.out === io.in)
+    assert(io.out === io.in, "out is equal to in", "label")
   }
 }
 
