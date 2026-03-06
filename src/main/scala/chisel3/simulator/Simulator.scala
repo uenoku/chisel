@@ -160,12 +160,13 @@ trait Simulator[T <: Backend] {
   ): Simulator.BackendInvocationDigest[U] = {
     val workspace = new Workspace(path = workspacePath, workingDirectoryPrefix = workingDirectoryPrefix)
     workspace.reset()
+    val instanceChoiceOpts = InstanceChoiceControl.toFirtoolOptions(settings.instanceChoices)
     val elaboratedModule =
       workspace
         .elaborateGeneratedModule(
           () => module,
           args = chiselOptsModifications(chiselOpts).toSeq,
-          firtoolArgs = firtoolOptsModifications(firtoolOpts).toSeq
+          firtoolArgs = firtoolOptsModifications(firtoolOpts).toSeq ++ instanceChoiceOpts
         )
     _simulate(workspace, elaboratedModule, settings)(body)
   }
@@ -186,12 +187,13 @@ trait Simulator[T <: Backend] {
     val workspace = new Workspace(path = workspacePath, workingDirectoryPrefix = workingDirectoryPrefix)
     workspace.reset()
     val filesystem = FileSystems.getDefault()
+    val instanceChoiceOpts = InstanceChoiceControl.toFirtoolOptions(settings.instanceChoices)
     val results = workspace
       .elaborateAndMakeTestHarnessWorkspaces(
         () => module,
         includeTestGlobs = includeTestGlobs.toSeq,
         args = chiselOptsModifications(chiselOpts).toSeq,
-        firtoolArgs = firtoolOptsModifications(firtoolOpts).toSeq
+        firtoolArgs = firtoolOptsModifications(firtoolOpts).toSeq ++ instanceChoiceOpts
       )
       .map { case (testWorkspace, elaboratedTest, elaboratedModule) =>
         val digest = _simulate(testWorkspace, elaboratedModule, settings)(body)
@@ -297,16 +299,23 @@ trait Simulator[T <: Backend] {
       )
     }
 
+    // Get additional headers for instance choice support
+    val instanceChoiceHeaders = InstanceChoiceControl.getAdditionalHeaders(workspace.primarySourcesPath)
+
     val commonCompilationSettingsUpdated = commonSettingsModifications(
       commonCompilationSettings.copy(
         // Append to the include directorires based on what the
         // workspace indicates is the path for primary sources.  This
         // ensures that `` `include `` directives can be resolved.
-        includeDirs = Some(commonCompilationSettings.includeDirs.getOrElse(Seq.empty) ++ primarySourcesDirectories),
+        // Also include directories for instance choice headers.
+        includeDirs = Some(
+          commonCompilationSettings.includeDirs.getOrElse(Seq.empty) ++ primarySourcesDirectories ++ instanceChoiceHeaders
+        ),
         verilogPreprocessorDefines =
           commonCompilationSettings.verilogPreprocessorDefines ++ settings.preprocessorDefines(elaboratedModule),
-        fileFilter =
-          commonCompilationSettings.fileFilter.orElse(settings.verilogLayers.shouldIncludeFile(elaboratedModule)),
+        fileFilter = commonCompilationSettings.fileFilter
+          .orElse(settings.verilogLayers.shouldIncludeFile(elaboratedModule))
+          .orElse(InstanceChoiceControl.shouldExcludeFile),
         directoryFilter = commonCompilationSettings.directoryFilter.orElse(
           settings.verilogLayers.shouldIncludeDirectory(elaboratedModule, workspace.primarySourcesPath)
         ),
