@@ -300,8 +300,6 @@ trait Simulator[T <: Backend] {
     }
 
     // Get additional headers for instance choice support
-    val instanceChoiceHeaders = InstanceChoiceControl.getAdditionalHeaders(workspace.primarySourcesPath)
-
     val commonCompilationSettingsUpdated = commonSettingsModifications(
       commonCompilationSettings.copy(
         // Append to the include directorires based on what the
@@ -311,7 +309,7 @@ trait Simulator[T <: Backend] {
         includeDirs = Some(
           commonCompilationSettings.includeDirs.getOrElse(
             Seq.empty
-          ) ++ primarySourcesDirectories ++ instanceChoiceHeaders
+          ) ++ primarySourcesDirectories
         ),
         verilogPreprocessorDefines =
           commonCompilationSettings.verilogPreprocessorDefines ++ settings.preprocessorDefines(elaboratedModule),
