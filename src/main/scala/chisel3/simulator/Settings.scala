@@ -183,6 +183,18 @@ final class Settings[A <: RawModule] private[simulator] (
 
   }
 
+  /** Return a partial function that determines if instance choice header files should be included.
+    *
+    * This delegates to InstanceChoiceControl.shouldIncludeFile with the current instance choices.
+    *
+    * @param elaboratedModule an elaborated Chisel module
+    */
+  private[simulator] def shouldIncludeInstanceChoiceFile(
+    elaboratedModule: ElaboratedModule[A]
+  ): PartialFunction[java.io.File, Boolean] = {
+    InstanceChoiceControl.shouldIncludeFile(instanceChoices, elaboratedModule)
+  }
+
 }
 
 /** This object contains factories of [[Settings]].

@@ -317,7 +317,7 @@ trait Simulator[T <: Backend] {
           commonCompilationSettings.verilogPreprocessorDefines ++ settings.preprocessorDefines(elaboratedModule),
         fileFilter = commonCompilationSettings.fileFilter
           .orElse(settings.verilogLayers.shouldIncludeFile(elaboratedModule))
-          .orElse(InstanceChoiceControl.shouldExcludeFile(settings.instanceChoices)),
+          .orElse(settings.shouldIncludeInstanceChoiceFile(elaboratedModule)),
         directoryFilter = commonCompilationSettings.directoryFilter.orElse(
           settings.verilogLayers.shouldIncludeDirectory(elaboratedModule, workspace.primarySourcesPath)
         ),
