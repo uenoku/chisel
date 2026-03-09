@@ -32,7 +32,7 @@ class ModuleChoiceTestModule extends Module {
     io.out := 1.U
   }
   class VerificationTarget extends FixedIORawModule[TargetIO](new TargetIO) {
-    io.out := 3.U
+    io.out := 0.U
   }
 
   // Use ModuleChoice to select the appropriate output module based on the Platform group
@@ -85,3 +85,15 @@ class ModuleChoiceFPGAVerilogElaborationSpec extends AnyFunSpec with ChiselSim w
   }
 }
 
+
+/** ScalaTest specification for ModuleChoice functionality with FPGA platform at Verilog elaboration time. */
+class ModuleChoiceDefaultVerilogElaborationSpec extends AnyFunSpec with ChiselSim with Matchers {
+
+  describe("ModuleChoice mechanism with FPGA platform at Verilog elaboration time") {
+    it("should output 0 when no choice is selected at Verilog elaboration time") {
+      simulate(new ModuleChoiceTestModule) { dut =>
+        dut.out.peek().litValue shouldBe 0
+      }
+    }
+  }
+}

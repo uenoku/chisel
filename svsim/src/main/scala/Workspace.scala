@@ -453,7 +453,7 @@ final class Workspace(
     }
 
     // Dump included source files if verbose mode is enabled
-    if (true) {
+    if (verbose) {
       println(s"[svsim] Including ${sortedSourceFiles.size} source files:")
       sortedSourceFiles.foreach { file =>
         println(s"[svsim]   $file")

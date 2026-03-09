@@ -65,21 +65,33 @@ object InstanceChoiceControl {
   /** Return a partial function that will return false for files that should be
     * excluded from the build when using instance choices.
     *
-    * '''Verilog Elaboration Time:''' Instance choice generates `targets_*.svh` header
-    * files during Verilog elaboration. These files should be excluded from compilation
-    * units but included as headers.
+    * '''Verilog Elaboration Time:''' Instance choice generates `targets-*.svh` header
+    * files during Verilog elaboration. Only the header files for selected options
+    * should be included; others should be excluded.
     *
+    * @param choices the instance choice selections
     * @return a partial function to test if files should be excluded
     */
-  def shouldExcludeFile: PartialFunction[File, Boolean] = {
-    // case a if a.getName().startsWith("targets-") && a.getName().endsWith(".svh") =>
-    case a => true
+  def shouldExcludeFile(choices: Type): PartialFunction[File, Boolean] = {
+    // Get the set of option names that are selected for VerilogElaborationTime
+    val selectedOptions = choices.collect {
+      case (SpecializationTime.VerilogElaborationTime, option, _) => option
+    }.toSet
+
+    {
+      case a if a.getName().startsWith("targets-") && a.getName().endsWith(".svh") =>
+        // Extract the option name from the filename: targets-<OptionName>.svh
+        val fileName = a.getName()
+        val optionName = fileName.stripPrefix("targets-").stripSuffix(".svh")
+        // Exclude if this option is NOT selected for VerilogElaborationTime
+        !selectedOptions.contains(optionName)
+    }
   }
 
   /** Return the list of additional header files that should be included for
     * instance choice support.
     *
-    * '''Verilog Elaboration Time:''' Instance choice generates `targets_*.svh` header
+    * '''Verilog Elaboration Time:''' Instance choice generates `targets-*.svh` header
     * files during Verilog elaboration. These files need to be available during
     * compilation but should not be compiled as source files.
     *
