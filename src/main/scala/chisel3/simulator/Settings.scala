@@ -114,7 +114,7 @@ final class Settings[A <: RawModule] private[simulator] (
   val randomization:         Randomization,
   val libraries:             Seq[String],
   val libraryPaths:          Seq[String],
-  val instanceChoices:       InstanceChoiceControl.Type = Seq.empty
+  val instanceChoices:       InstanceChoiceControl.Type = InstanceChoiceControl(Seq.empty)
 ) {
 
   def copy(
@@ -183,18 +183,6 @@ final class Settings[A <: RawModule] private[simulator] (
 
   }
 
-  /** Return a partial function that determines if instance choice header files should be included.
-    *
-    * This delegates to InstanceChoiceControl.shouldIncludeFile with the current instance choices.
-    *
-    * @param elaboratedModule an elaborated Chisel module
-    */
-  private[simulator] def shouldIncludeInstanceChoiceFile(
-    elaboratedModule: ElaboratedModule[A]
-  ): PartialFunction[java.io.File, Boolean] = {
-    InstanceChoiceControl.shouldIncludeFile(instanceChoices, elaboratedModule)
-  }
-
 }
 
 /** This object contains factories of [[Settings]].
@@ -229,7 +217,7 @@ object Settings {
     randomization = Randomization.random,
     libraries = Seq.empty,
     libraryPaths = Seq.empty,
-    instanceChoices = Seq.empty
+    instanceChoices = InstanceChoiceControl(Seq.empty)
   )
 
   /** Return a default [[Settings]] for a [[RawModule]].
@@ -261,7 +249,7 @@ object Settings {
     randomization = Randomization.random,
     libraries = Seq.empty,
     libraryPaths = Seq.empty,
-    instanceChoices = Seq.empty
+    instanceChoices = InstanceChoiceControl(Seq.empty)
   )
 
   /** Return a default [[Settings]] for a [[SimulationTestHarnessInterface]].  Macros will be set to
@@ -291,7 +279,7 @@ object Settings {
     randomization = Randomization.random,
     libraries = Seq.empty,
     libraryPaths = Seq.empty,
-    instanceChoices = Seq.empty
+    instanceChoices = InstanceChoiceControl(Seq.empty)
   )
 
   /** Simple factory for construcing a [[Settings]] from arguments.
@@ -331,7 +319,7 @@ object Settings {
     randomization = randomization,
     libraries = Seq.empty,
     libraryPaths = Seq.empty,
-    instanceChoices = Seq.empty
+    instanceChoices = InstanceChoiceControl(Seq.empty)
   )
 
 }

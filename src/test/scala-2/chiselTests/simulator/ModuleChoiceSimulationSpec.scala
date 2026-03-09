@@ -4,7 +4,7 @@ package chiselTests.simulator
 
 import chisel3._
 import chisel3.choice.{Case, Group, ModuleChoice}
-import chisel3.simulator.Settings
+import chisel3.simulator.{InstanceChoiceControl, Settings}
 import chisel3.simulator.InstanceChoiceControl.SpecializationTime
 import chisel3.simulator.scalatest.ChiselSim
 import org.scalatest.funspec.AnyFunSpec
@@ -60,7 +60,7 @@ class ModuleChoiceFPGASpec extends AnyFunSpec with ChiselSim with Matchers {
       val settings = Settings
         .default[ModuleChoiceTestModule]
         .copy(
-          instanceChoices = List((SpecializationTime.FirtoolCompilationTime, "Platform", "FPGA"))
+          instanceChoices = InstanceChoiceControl(List((SpecializationTime.FirtoolCompilationTime, "Platform", "FPGA")))
         )
 
       simulate(new ModuleChoiceTestModule, settings = settings) { dut =>
@@ -79,7 +79,7 @@ class ModuleChoiceFPGAVerilogElaborationSpec extends AnyFunSpec with ChiselSim w
       val settings = Settings
         .default[ModuleChoiceTestModule]
         .copy(
-          instanceChoices = List((SpecializationTime.VerilogElaborationTime, "Platform", "FPGA"))
+          instanceChoices = InstanceChoiceControl(List((SpecializationTime.VerilogElaborationTime, "Platform", "FPGA")))
         )
 
       simulate(new ModuleChoiceTestModule, settings = settings) { dut =>

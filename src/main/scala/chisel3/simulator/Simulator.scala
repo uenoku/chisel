@@ -160,7 +160,7 @@ trait Simulator[T <: Backend] {
   ): Simulator.BackendInvocationDigest[U] = {
     val workspace = new Workspace(path = workspacePath, workingDirectoryPrefix = workingDirectoryPrefix)
     workspace.reset()
-    val instanceChoiceOpts = InstanceChoiceControl.toFirtoolOptions(settings.instanceChoices)
+    val instanceChoiceOpts = settings.instanceChoices.toFirtoolOptions
     val elaboratedModule =
       workspace
         .elaborateGeneratedModule(
@@ -187,7 +187,7 @@ trait Simulator[T <: Backend] {
     val workspace = new Workspace(path = workspacePath, workingDirectoryPrefix = workingDirectoryPrefix)
     workspace.reset()
     val filesystem = FileSystems.getDefault()
-    val instanceChoiceOpts = InstanceChoiceControl.toFirtoolOptions(settings.instanceChoices)
+    val instanceChoiceOpts = settings.instanceChoices.toFirtoolOptions
     val results = workspace
       .elaborateAndMakeTestHarnessWorkspaces(
         () => module,
@@ -317,7 +317,7 @@ trait Simulator[T <: Backend] {
           commonCompilationSettings.verilogPreprocessorDefines ++ settings.preprocessorDefines(elaboratedModule),
         fileFilter = commonCompilationSettings.fileFilter
           .orElse(settings.verilogLayers.shouldIncludeFile(elaboratedModule))
-          .orElse(settings.shouldIncludeInstanceChoiceFile(elaboratedModule)),
+          .orElse(settings.instanceChoices.shouldIncludeFile(elaboratedModule)),
         directoryFilter = commonCompilationSettings.directoryFilter.orElse(
           settings.verilogLayers.shouldIncludeDirectory(elaboratedModule, workspace.primarySourcesPath)
         ),
