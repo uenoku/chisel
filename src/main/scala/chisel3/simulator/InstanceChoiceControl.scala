@@ -72,8 +72,8 @@ object InstanceChoiceControl {
     * @return a partial function to test if files should be excluded
     */
   def shouldExcludeFile: PartialFunction[File, Boolean] = {
-    case a if a.getName().startsWith("targets_") && a.getName().endsWith(".svh") =>
-      false
+    // case a if a.getName().startsWith("targets-") && a.getName().endsWith(".svh") =>
+    case a => true
   }
 
   /** Return the list of additional header files that should be included for
@@ -91,7 +91,7 @@ object InstanceChoiceControl {
     if (primarySourcesDir.exists() && primarySourcesDir.isDirectory()) {
       primarySourcesDir
         .listFiles()
-        .filter(f => f.getName().startsWith("targets_") && f.getName().endsWith(".svh"))
+        .filter(f => f.getName().startsWith("targets-") && f.getName().endsWith(".svh"))
         .map(_.getParent())
         .distinct
         .toSeq
