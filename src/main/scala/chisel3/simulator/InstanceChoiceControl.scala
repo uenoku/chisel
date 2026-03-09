@@ -75,28 +75,4 @@ object InstanceChoiceControl {
   /** Create instance choices from a sequence */
   def apply(choices: Seq[(SpecializationTime, String, String)]): Type = Choices(choices)
 
-  /** Return the list of additional header files that should be included for
-    * instance choice support.
-    *
-    * '''Verilog Elaboration Time:''' Instance choice generates `targets-*.svh` header
-    * files during Verilog elaboration. These files need to be available during
-    * compilation but should not be compiled as source files.
-    *
-    * @param primarySourcesPath the path to the primary sources directory
-    * @return a sequence of header file paths
-    */
-  def getAdditionalHeaders(primarySourcesPath: String): Seq[String] = {
-    val primarySourcesDir = new File(primarySourcesPath)
-    if (primarySourcesDir.exists() && primarySourcesDir.isDirectory()) {
-      primarySourcesDir
-        .listFiles()
-        .filter(f => f.getName().startsWith("targets-") && f.getName().endsWith(".svh"))
-        .map(_.getParent())
-        .distinct
-        .toSeq
-    } else {
-      Seq.empty
-    }
-  }
-
 }

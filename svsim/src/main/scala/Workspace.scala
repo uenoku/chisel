@@ -452,14 +452,6 @@ final class Workspace(
       else a.compareTo(b) < 0 // Same type: alphabetical order
     }
 
-    // Dump included source files if verbose mode is enabled
-    if (verbose) {
-      println(s"[svsim] Including ${sortedSourceFiles.size} source files:")
-      sortedSourceFiles.foreach { file =>
-        println(s"[svsim]   $file")
-      }
-    }
-
     val traceFileStem = commonSettings.simulationSettings.traceFileStem
     val simulationEnvironment = Seq(
       "SVSIM_SIMULATION_LOG" -> s"$workingDirectoryPath/simulation-log.txt",
