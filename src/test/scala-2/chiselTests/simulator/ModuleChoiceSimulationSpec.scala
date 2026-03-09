@@ -10,7 +10,6 @@ import chisel3.simulator.scalatest.ChiselSim
 import org.scalatest.funspec.AnyFunSpec
 import org.scalatest.matchers.should.Matchers
 
-/** Test Group for ModuleChoice unit test */
 object Platform extends Group {
   object FPGA extends Case
 }
@@ -19,19 +18,14 @@ object Opt extends Group {
   object Fast extends Case
 }
 
-/** IO bundle for the ModuleChoice output modules */
 class TargetIO extends Bundle {
   val out = Output(UInt(8.W))
 }
 
-/** Simple module that outputs a different constant value based on ModuleChoice selection.
-  * This verifies that ModuleChoice correctly selects between different module implementations.
-  */
+/** Test module with ModuleChoice that outputs different values based on selection */
 class ModuleChoiceTestModule extends Module {
   val out1, out2 = IO(Output(UInt(8.W)))
 
-  // Each case outputs a different constant value
-  // Must use FixedIORawModule for ModuleChoice compatibility
   class Return1 extends FixedIORawModule[TargetIO](new TargetIO) {
     io.out := 1.U
   }
@@ -39,8 +33,6 @@ class ModuleChoiceTestModule extends Module {
     io.out := 0.U
   }
 
-  // Use ModuleChoice to select the appropriate output module based on the Platform group
-  // Default is VerificationTarget (value 3)
   val choiceOut1 = ModuleChoice(new Return0)(
     Seq(
       Platform.FPGA -> new Return1
@@ -58,17 +50,11 @@ class ModuleChoiceTestModule extends Module {
   out2 := choiceOut2.out
 }
 
-/** ScalaTest specification for ModuleChoice functionality with FPGA platform.
-  *
-  * This test demonstrates how to use instance choice with ChiselSim.
-  * The instance choice is selected by passing the appropriate option to firtool
-  * via the Settings.instanceChoices field.
-  */
+/** Test ModuleChoice with FirtoolCompilationTime */
 class ModuleChoiceFPGASpec extends AnyFunSpec with ChiselSim with Matchers {
 
   describe("ModuleChoice mechanism with FPGA platform") {
     it("should output 1 when FPGA is selected at compile time") {
-      // Configure instance choice to select FPGA implementation at FIRRTL compilation time
       val settings = Settings
         .default[ModuleChoiceTestModule]
         .copy(
@@ -83,11 +69,11 @@ class ModuleChoiceFPGASpec extends AnyFunSpec with ChiselSim with Matchers {
   }
 }
 
+/** Test ModuleChoice with multiple choices at FirtoolCompilationTime */
 class ModuleChoiceMultipleChoicesFPGASpec extends AnyFunSpec with ChiselSim with Matchers {
 
   describe("ModuleChoice mechanism with FPGA platform") {
     it("should output 1 when FPGA is selected at compile time") {
-      // Configure instance choice to select FPGA implementation at FIRRTL compilation time
       val settings = Settings
         .default[ModuleChoiceTestModule]
         .copy(
@@ -102,12 +88,11 @@ class ModuleChoiceMultipleChoicesFPGASpec extends AnyFunSpec with ChiselSim with
   }
 }
 
-/** ScalaTest specification for ModuleChoice functionality with FPGA platform at Verilog elaboration time. */
+/** Test ModuleChoice with VerilogElaborationTime */
 class ModuleChoiceFPGAVerilogElaborationSpec extends AnyFunSpec with ChiselSim with Matchers {
 
   describe("ModuleChoice mechanism with FPGA platform at Verilog elaboration time") {
     it("should output 1 when FPGA is selected at Verilog elaboration time") {
-      // Configure instance choice to select FPGA implementation at Verilog elaboration time
       val settings = Settings
         .default[ModuleChoiceTestModule]
         .copy(
@@ -122,12 +107,11 @@ class ModuleChoiceFPGAVerilogElaborationSpec extends AnyFunSpec with ChiselSim w
   }
 }
 
-/** ScalaTest specification for ModuleChoice functionality with FPGA platform at Verilog elaboration time. */
+/** Test ModuleChoice with multiple choices at VerilogElaborationTime */
 class ModuleChoiceMultipleChoicesVerilogElaborationSpec extends AnyFunSpec with ChiselSim with Matchers {
 
   describe("ModuleChoice mechanism with FPGA platform at Verilog elaboration time") {
     it("should output 1 when FPGA is selected at Verilog elaboration time") {
-      // Configure instance choice to select FPGA implementation at Verilog elaboration time
       val settings = Settings
         .default[ModuleChoiceTestModule]
         .copy(
