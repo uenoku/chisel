@@ -51,10 +51,10 @@ class ModuleChoiceTestModule extends Module {
 }
 
 /** Test ModuleChoice with FirtoolCompilationTime */
-class ModuleChoiceFPGASpec extends AnyFunSpec with ChiselSim with Matchers {
+class ModuleChoiceFirtoolCompilationTimeSpec extends AnyFunSpec with ChiselSim with Matchers {
 
-  describe("ModuleChoice mechanism with FPGA platform") {
-    it("should output 1 when FPGA is selected at compile time") {
+  describe("ModuleChoice at FirtoolCompilationTime") {
+    it("should select single choice") {
       val settings = Settings
         .default[ModuleChoiceTestModule]
         .copy(
@@ -66,19 +66,18 @@ class ModuleChoiceFPGASpec extends AnyFunSpec with ChiselSim with Matchers {
         dut.out2.peek().litValue shouldBe 0
       }
     }
-  }
-}
 
-/** Test ModuleChoice with multiple choices at FirtoolCompilationTime */
-class ModuleChoiceMultipleChoicesFPGASpec extends AnyFunSpec with ChiselSim with Matchers {
-
-  describe("ModuleChoice mechanism with FPGA platform") {
-    it("should output 1 when FPGA is selected at compile time") {
+    it("should select multiple choices") {
       val settings = Settings
         .default[ModuleChoiceTestModule]
         .copy(
-          instanceChoices = InstanceChoiceControl(List((SpecializationTime.FirtoolCompilationTime, "Platform", "FPGA"), (SpecializationTime.FirtoolCompilationTime, "Opt", "Fast"))
-        ))
+          instanceChoices = InstanceChoiceControl(
+            List(
+              (SpecializationTime.FirtoolCompilationTime, "Platform", "FPGA"),
+              (SpecializationTime.FirtoolCompilationTime, "Opt", "Fast")
+            )
+          )
+        )
 
       simulate(new ModuleChoiceTestModule, settings = settings) { dut =>
         dut.out1.peek().litValue shouldBe 1
@@ -89,10 +88,10 @@ class ModuleChoiceMultipleChoicesFPGASpec extends AnyFunSpec with ChiselSim with
 }
 
 /** Test ModuleChoice with VerilogElaborationTime */
-class ModuleChoiceFPGAVerilogElaborationSpec extends AnyFunSpec with ChiselSim with Matchers {
+class ModuleChoiceVerilogElaborationTimeSpec extends AnyFunSpec with ChiselSim with Matchers {
 
-  describe("ModuleChoice mechanism with FPGA platform at Verilog elaboration time") {
-    it("should output 1 when FPGA is selected at Verilog elaboration time") {
+  describe("ModuleChoice at VerilogElaborationTime") {
+    it("should select single choice") {
       val settings = Settings
         .default[ModuleChoiceTestModule]
         .copy(
@@ -104,19 +103,18 @@ class ModuleChoiceFPGAVerilogElaborationSpec extends AnyFunSpec with ChiselSim w
         dut.out2.peek().litValue shouldBe 0
       }
     }
-  }
-}
 
-/** Test ModuleChoice with multiple choices at VerilogElaborationTime */
-class ModuleChoiceMultipleChoicesVerilogElaborationSpec extends AnyFunSpec with ChiselSim with Matchers {
-
-  describe("ModuleChoice mechanism with FPGA platform at Verilog elaboration time") {
-    it("should output 1 when FPGA is selected at Verilog elaboration time") {
+    it("should select multiple choices") {
       val settings = Settings
         .default[ModuleChoiceTestModule]
         .copy(
-          instanceChoices = InstanceChoiceControl(List((SpecializationTime.VerilogElaborationTime, "Platform", "FPGA"), (SpecializationTime.VerilogElaborationTime, "Opt", "Fast"))
-        ))
+          instanceChoices = InstanceChoiceControl(
+            List(
+              (SpecializationTime.VerilogElaborationTime, "Platform", "FPGA"),
+              (SpecializationTime.VerilogElaborationTime, "Opt", "Fast")
+            )
+          )
+        )
 
       simulate(new ModuleChoiceTestModule, settings = settings) { dut =>
         dut.out1.peek().litValue shouldBe 1
