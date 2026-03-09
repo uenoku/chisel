@@ -24,9 +24,10 @@ object InstanceChoiceControl {
   /** Enum representing when instance choice specialization occurs */
   sealed trait SpecializationTime
   object SpecializationTime {
+
     /** Specialize during FIRRTL compilation (via firtool options) */
     case object FirtoolCompilationTime extends SpecializationTime
-    
+
     /** Specialize during Verilog elaboration (via preprocessor defines) */
     case object VerilogElaborationTime extends SpecializationTime
   }
@@ -56,9 +57,8 @@ object InstanceChoiceControl {
     * @return firtool command line options for compile-time specialization
     */
   def toFirtoolOptions(choices: Type): Seq[String] = {
-    choices.collect {
-      case (SpecializationTime.FirtoolCompilationTime, option, caseValue) =>
-        Seq("--select-instance-choice", s"$option=$caseValue")
+    choices.collect { case (SpecializationTime.FirtoolCompilationTime, option, caseValue) =>
+      Seq("--select-instance-choice", s"$option=$caseValue")
     }.flatten
   }
 
@@ -69,22 +69,35 @@ object InstanceChoiceControl {
     * files during Verilog elaboration. Only the header files for selected options
     * should be included; others should be excluded.
     *
+    * File naming pattern: `targets-<module_name>-<option-name>-<option-value>.svh`
+    *
     * @param choices the instance choice selections
     * @return a partial function to test if files should be excluded
     */
   def shouldExcludeFile(choices: Type): PartialFunction[File, Boolean] = {
-    // Get the set of option names that are selected for VerilogElaborationTime
-    val selectedOptions = choices.collect {
-      case (SpecializationTime.VerilogElaborationTime, option, _) => option
+    // Get the set of (option, value) pairs that are selected for VerilogElaborationTime
+    val selectedChoices = choices.collect { case (SpecializationTime.VerilogElaborationTime, option, value) =>
+      (option, value)
     }.toSet
 
     {
       case a if a.getName().startsWith("targets-") && a.getName().endsWith(".svh") =>
-        // Extract the option name from the filename: targets-<OptionName>.svh
+        // Extract option and value from filename: targets-<module_name>-<option-name>-<option-value>.svh
         val fileName = a.getName()
-        val optionName = fileName.stripPrefix("targets-").stripSuffix(".svh")
-        // Exclude if this option is NOT selected for VerilogElaborationTime
-        !selectedOptions.contains(optionName)
+        val withoutPrefix = fileName.stripPrefix("targets-").stripSuffix(".svh")
+        val parts = withoutPrefix.split("-")
+
+        // Need at least 3 parts: module_name, option-name, option-value
+        if (parts.length >= 3) {
+          // Last part is option-value, second-to-last is option-name
+          val optionValue = parts.last
+          val optionName = parts(parts.length - 2)
+          // Exclude if this (option, value) pair is NOT selected for VerilogElaborationTime
+          selectedChoices.contains((optionName, optionValue))
+        } else {
+          // If we can't parse it, don't exclude it (safer default)
+          true
+        }
     }
   }
 
@@ -113,4 +126,3 @@ object InstanceChoiceControl {
   }
 
 }
-

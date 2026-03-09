@@ -447,9 +447,9 @@ final class Workspace(
       val isTargetsHeaderA = a.matches(".*targets-.*\\.svh$")
       val isTargetsHeaderB = b.matches(".*targets-.*\\.svh$")
 
-      if (isTargetsHeaderA && !isTargetsHeaderB) true  // targets-*.svh headers come first
-      else if (!isTargetsHeaderA && isTargetsHeaderB) false  // Other files come after
-      else a.compareTo(b) < 0  // Same type: alphabetical order
+      if (isTargetsHeaderA && !isTargetsHeaderB) true // targets-*.svh headers come first
+      else if (!isTargetsHeaderA && isTargetsHeaderB) false // Other files come after
+      else a.compareTo(b) < 0 // Same type: alphabetical order
     }
 
     // Dump included source files if verbose mode is enabled

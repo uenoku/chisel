@@ -309,7 +309,9 @@ trait Simulator[T <: Backend] {
         // ensures that `` `include `` directives can be resolved.
         // Also include directories for instance choice headers.
         includeDirs = Some(
-          commonCompilationSettings.includeDirs.getOrElse(Seq.empty) ++ primarySourcesDirectories ++ instanceChoiceHeaders
+          commonCompilationSettings.includeDirs.getOrElse(
+            Seq.empty
+          ) ++ primarySourcesDirectories ++ instanceChoiceHeaders
         ),
         verilogPreprocessorDefines =
           commonCompilationSettings.verilogPreprocessorDefines ++ settings.preprocessorDefines(elaboratedModule),

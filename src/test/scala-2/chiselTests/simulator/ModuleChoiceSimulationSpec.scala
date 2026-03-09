@@ -57,9 +57,11 @@ class ModuleChoiceFPGASpec extends AnyFunSpec with ChiselSim with Matchers {
   describe("ModuleChoice mechanism with FPGA platform") {
     it("should output 1 when FPGA is selected at compile time") {
       // Configure instance choice to select FPGA implementation at FIRRTL compilation time
-      val settings = Settings.default[ModuleChoiceTestModule].copy(
-        instanceChoices = List((SpecializationTime.FirtoolCompilationTime, "Platform", "FPGA"))
-      )
+      val settings = Settings
+        .default[ModuleChoiceTestModule]
+        .copy(
+          instanceChoices = List((SpecializationTime.FirtoolCompilationTime, "Platform", "FPGA"))
+        )
 
       simulate(new ModuleChoiceTestModule, settings = settings) { dut =>
         dut.out.peek().litValue shouldBe 1
@@ -74,9 +76,11 @@ class ModuleChoiceFPGAVerilogElaborationSpec extends AnyFunSpec with ChiselSim w
   describe("ModuleChoice mechanism with FPGA platform at Verilog elaboration time") {
     it("should output 1 when FPGA is selected at Verilog elaboration time") {
       // Configure instance choice to select FPGA implementation at Verilog elaboration time
-      val settings = Settings.default[ModuleChoiceTestModule].copy(
-        instanceChoices = List((SpecializationTime.VerilogElaborationTime, "Platform", "FPGA"))
-      )
+      val settings = Settings
+        .default[ModuleChoiceTestModule]
+        .copy(
+          instanceChoices = List((SpecializationTime.VerilogElaborationTime, "Platform", "FPGA"))
+        )
 
       simulate(new ModuleChoiceTestModule, settings = settings) { dut =>
         dut.out.peek().litValue shouldBe 1
@@ -84,7 +88,6 @@ class ModuleChoiceFPGAVerilogElaborationSpec extends AnyFunSpec with ChiselSim w
     }
   }
 }
-
 
 /** ScalaTest specification for ModuleChoice functionality with FPGA platform at Verilog elaboration time. */
 class ModuleChoiceDefaultVerilogElaborationSpec extends AnyFunSpec with ChiselSim with Matchers {
