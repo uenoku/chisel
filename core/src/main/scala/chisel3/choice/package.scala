@@ -135,37 +135,6 @@ package object choice {
     def apply(name: String, caseNames: Seq[String])(implicit sourceInfo: SourceInfo): DynamicGroup = {
       new DynamicGroup(name, caseNames)
     }
-
-    /** Create a DynamicGroup with a builder function that provides a trait-like interface.
-      * The builder function receives the DynamicGroup and should return an object that
-      * implements the desired trait.
-      *
-      * @tparam T The trait type that defines the case structure
-      * @param name The name of the group
-      * @param caseNames List of case names for this group
-      * @param builder A function that takes the DynamicGroup and returns an instance of T
-      * @param sourceInfo Source location information
-      * @return An instance of T that provides access to the cases
-      *
-      * @example
-      * {{{
-      * trait PlatformType {
-      *   def FPGA: Case
-      *   def ASIC: Case
-      * }
-      * val platform = DynamicGroup.withTrait[PlatformType]("Platform", Seq("FPGA", "ASIC")) { group =>
-      *   new PlatformType {
-      *     def FPGA = group("FPGA")
-      *     def ASIC = group("ASIC")
-      *   }
-      * }
-      * platform.FPGA // Access the FPGA case
-      * }}}
-      */
-    def withTrait[T](name: String, caseNames: Seq[String])(builder: DynamicGroup => T)(implicit sourceInfo: SourceInfo): T = {
-      val group = new DynamicGroup(name, caseNames)
-      builder(group)
-    }
   }
 
   /** An option case declaration.
