@@ -114,4 +114,72 @@ package object choice {
       */
     def ->[T](module: => T): (Case, () => T) = (this, () => module)
   }
+
+  /** A dynamic option case declaration that accepts a name as a String parameter.
+    * This allows creating cases at runtime without requiring singleton objects.
+    *
+    * If a Case with the same name already exists in the same group, it will be reused.
+    *
+    * @param caseName The name of the case
+    * @param group The group this case belongs to
+    * @param _sourceInfo Source location information
+    *
+    * @example
+    * {{{
+    * import chisel3.choice.{DynamicGroup, DynamicCase}
+    * val platform = new DynamicGroup("Platform")
+    * val fpga = new DynamicCase("FPGA", platform.group)
+    * val asic = new DynamicCase("ASIC", platform.group)
+    * }}}
+    */
+  class DynamicCase(val caseName: String, val caseGroup: Group)(implicit _sourceInfo: SourceInfo) {
+    import chisel3.internal.Builder
+
+    private[chisel3] def sourceInfo: SourceInfo = _sourceInfo
+
+    private[chisel3] def name: String = caseName
+
+    // Create a factory that produces a singleton Case object
+    private def createCaseFactory(): () => Case = () => {
+      object DynamicCaseSingleton extends Case()(caseGroup, _sourceInfo) {
+        override private[chisel3] def name: String = caseName
+      }
+      DynamicCaseSingleton
+    }
+
+    // Get or create the singleton Case for this name and group
+    private val _case: Case =
+      if (Builder.inContext) {
+        Builder.getOrCreateDynamicCase(caseGroup, caseName, createCaseFactory())
+      } else {
+        // If not in context, just call the factory
+        createCaseFactory()()
+      }
+
+    /** A helper method to allow ModuleChoice to use the `->` syntax to specify case-module mappings.
+      *
+      * It captures a lazy reference to the module and produces a generator to avoid instantiating it.
+      *
+      * @param module Module to map to the current case.
+      */
+    def ->[T](module: => T): (Case, () => T) = (_case, () => module)
+
+    // Expose the underlying Case
+    def asCase: Case = _case
+  }
+
+  object DynamicCase {
+    /** Create a DynamicCase with the given name and group.
+      * If a case with this name already exists in the same group,
+      * the returned DynamicCase will share the same underlying Case singleton.
+      *
+      * @param name The name of the case
+      * @param group The group this case belongs to
+      * @param sourceInfo Source location information
+      * @return A DynamicCase with the given name
+      */
+    def apply(name: String, group: Group)(implicit sourceInfo: SourceInfo): DynamicCase = {
+      new DynamicCase(name, group)
+    }
+  }
 }

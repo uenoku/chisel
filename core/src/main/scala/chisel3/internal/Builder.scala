@@ -537,6 +537,8 @@ private[chisel3] class DynamicContext(
   val domains = mutable.LinkedHashSet[domain.Domain]()
   // Map from group name to the singleton Group object for that name
   val dynamicGroupsByName = mutable.HashMap[String, choice.Group]()
+  // Map from (group, case name) to the singleton Case object
+  val dynamicCasesByGroupAndName = mutable.HashMap[(choice.Group, String), choice.Case]()
   var currentModule: Option[BaseModule] = None
 
   // Views that do not correspond to a single ReferenceTarget and thus require renaming
@@ -617,6 +619,7 @@ private[chisel3] object Builder extends LazyLogging {
   def domains: mutable.LinkedHashSet[domain.Domain] = dynamicContext.domains
 
   def dynamicGroupsByName: mutable.HashMap[String, choice.Group] = dynamicContext.dynamicGroupsByName
+  def dynamicCasesByGroupAndName: mutable.HashMap[(choice.Group, String), choice.Case] = dynamicContext.dynamicCasesByGroupAndName
 
   def contextCache: BuilderContextCache = dynamicContext.contextCache
 
@@ -877,6 +880,18 @@ private[chisel3] object Builder extends LazyLogging {
     */
   def getOrCreateDynamicGroup(name: String, groupFactory: () => choice.Group): choice.Group = {
     dynamicGroupsByName.getOrElseUpdate(name, groupFactory())
+  }
+
+  /** Get or create a singleton Case for the given group and name.
+    * This ensures that all DynamicCases with the same name in the same group share the same Case singleton.
+    *
+    * @param group The group this case belongs to
+    * @param name The name of the case
+    * @param caseFactory A function that creates the singleton Case object
+    * @return The singleton Case for this group and name
+    */
+  def getOrCreateDynamicCase(group: choice.Group, name: String, caseFactory: () => choice.Case): choice.Case = {
+    dynamicCasesByGroupAndName.getOrElseUpdate((group, name), caseFactory())
   }
 
   def forcedClock: Clock = currentClock.getOrElse(
