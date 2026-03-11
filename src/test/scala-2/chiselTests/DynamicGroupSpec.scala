@@ -68,8 +68,11 @@ class DynamicGroupSpec extends AnyFlatSpec with Matchers with FileCheck {
       .fileCheck()(
         """|CHECK: option Platform :
            |CHECK-NEXT: FPGA
-           |CHECK-NEXT: ASIC""".stripMargin
+           |CHECK-NEXT: ASIC
+           |CHECK-NOT: option Platform :
+           """.stripMargin
       )
+
   }
 
   it should "reject DynamicGroup with same name but different cases" in {
