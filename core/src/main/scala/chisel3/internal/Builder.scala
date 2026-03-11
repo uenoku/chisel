@@ -535,8 +535,8 @@ private[chisel3] class DynamicContext(
   val layers = mutable.LinkedHashSet[layer.Layer]()
   val options = mutable.LinkedHashSet[choice.Case]()
   val domains = mutable.LinkedHashSet[domain.Domain]()
-  // Map from group name to the singleton Group object for that name
-  val dynamicGroupsByName = mutable.HashMap[String, choice.Group]()
+  // Map from group name to (singleton Group object, case names)
+  val dynamicGroupsByName = mutable.HashMap[String, (choice.Group, Seq[String])]()
   // Map from (group, case name) to the singleton Case object
   val dynamicCasesByGroupAndName = mutable.HashMap[(choice.Group, String), choice.Case]()
   var currentModule: Option[BaseModule] = None
@@ -618,7 +618,7 @@ private[chisel3] object Builder extends LazyLogging {
   def options: mutable.LinkedHashSet[choice.Case] = dynamicContext.options
   def domains: mutable.LinkedHashSet[domain.Domain] = dynamicContext.domains
 
-  def dynamicGroupsByName: mutable.HashMap[String, choice.Group] = dynamicContext.dynamicGroupsByName
+  def dynamicGroupsByName: mutable.HashMap[String, (choice.Group, Seq[String])] = dynamicContext.dynamicGroupsByName
   def dynamicCasesByGroupAndName: mutable.HashMap[(choice.Group, String), choice.Case] = dynamicContext.dynamicCasesByGroupAndName
 
   def contextCache: BuilderContextCache = dynamicContext.contextCache
@@ -871,15 +871,31 @@ private[chisel3] object Builder extends LazyLogging {
 
   def elaborationTrace: ElaborationTrace = dynamicContext.elaborationTrace
 
+  /** Look up an existing DynamicGroup by name.
+    *
+    * @param name The name of the group to look up
+    * @return Some((group, caseNames)) if found, None otherwise
+    */
+  def getDynamicGroupInfo(name: String): Option[(choice.Group, Seq[String])] = {
+    dynamicGroupsByName.get(name)
+  }
+
   /** Get or create a singleton Group for the given name.
     * This ensures that all DynamicGroups with the same name share the same Group singleton.
     *
     * @param name The name of the group
+    * @param caseNames The case names for this group
     * @param groupFactory A function that creates the singleton Group object
     * @return The singleton Group for this name
     */
-  def getOrCreateDynamicGroup(name: String, groupFactory: () => choice.Group): choice.Group = {
-    dynamicGroupsByName.getOrElseUpdate(name, groupFactory())
+  def getOrCreateDynamicGroup(name: String, caseNames: Seq[String], groupFactory: () => choice.Group): choice.Group = {
+    dynamicGroupsByName.get(name) match {
+      case Some((existingGroup, _)) => existingGroup
+      case None =>
+        val newGroup = groupFactory()
+        dynamicGroupsByName(name) = (newGroup, caseNames)
+        newGroup
+    }
   }
 
   /** Get or create a singleton Case for the given group and name.
