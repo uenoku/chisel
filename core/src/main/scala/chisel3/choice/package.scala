@@ -61,44 +61,39 @@ package object choice {
 
     private[chisel3] def name: String = groupName
 
-    // Create an actual Group singleton that wraps this DynamicGroup
-    // This is created eagerly so it exists before registration
-    private object _group extends Group {
-      override private[chisel3] def sourceInfo: SourceInfo = _sourceInfo
-      override private[chisel3] def name: String = groupName
+    // Create a factory that produces a singleton Group object
+    private def createGroupFactory(): () => Group = () => {
+      object DynamicGroupSingleton extends Group()(_sourceInfo) {
+        override private[chisel3] def name: String = groupName
+      }
+      DynamicGroupSingleton
     }
 
-    // Register this group or get existing one with the same name
-    // If an existing group is found, we'll use its group object instead
-    private val registeredGroup: DynamicGroup =
+    // Get or create the singleton Group for this name from the Builder context
+    // All DynamicGroups with the same name will share the same Group singleton
+    private val _group: Group =
       if (Builder.inContext) {
-        Builder.registerDynamicGroup(this)
+        Builder.getOrCreateDynamicGroup(groupName, createGroupFactory())
       } else {
-        this
+        // If not in context, just call the factory
+        createGroupFactory()()
       }
 
-    // Provide an implicit group - returns the group from the registered DynamicGroup
-    // This ensures that if multiple DynamicGroups with the same name are created,
-    // they all return the same Group object (from the first registered one)
-    final implicit def group: Group = registeredGroup._group
+    // Provide an implicit group - returns the shared singleton Group for this name
+    final implicit def group: Group = _group
   }
 
   object DynamicGroup {
-    /** Get or create a DynamicGroup with the given name.
-      * If a group with this name already exists, returns that group.
-      * Otherwise, creates and registers a new group.
+    /** Create a DynamicGroup with the given name.
+      * If a group with this name already exists in the elaboration context,
+      * the returned DynamicGroup will share the same underlying Group singleton.
       *
       * @param name The name of the group
       * @param sourceInfo Source location information
-      * @return The DynamicGroup with the given name
+      * @return A DynamicGroup with the given name
       */
     def apply(name: String)(implicit sourceInfo: SourceInfo): DynamicGroup = {
-      import chisel3.internal.Builder
-      if (Builder.inContext) {
-        Builder.getDynamicGroup(name).getOrElse(new DynamicGroup(name))
-      } else {
-        new DynamicGroup(name)
-      }
+      new DynamicGroup(name)
     }
   }
 

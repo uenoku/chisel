@@ -535,8 +535,8 @@ private[chisel3] class DynamicContext(
   val layers = mutable.LinkedHashSet[layer.Layer]()
   val options = mutable.LinkedHashSet[choice.Case]()
   val domains = mutable.LinkedHashSet[domain.Domain]()
-  // Map from group name to DynamicGroup instance for uniqueness checking
-  val dynamicGroups = mutable.HashMap[String, choice.DynamicGroup]()
+  // Map from group name to the singleton Group object for that name
+  val dynamicGroupsByName = mutable.HashMap[String, choice.Group]()
   var currentModule: Option[BaseModule] = None
 
   // Views that do not correspond to a single ReferenceTarget and thus require renaming
@@ -616,7 +616,7 @@ private[chisel3] object Builder extends LazyLogging {
   def options: mutable.LinkedHashSet[choice.Case] = dynamicContext.options
   def domains: mutable.LinkedHashSet[domain.Domain] = dynamicContext.domains
 
-  def dynamicGroups: mutable.HashMap[String, choice.DynamicGroup] = dynamicContext.dynamicGroups
+  def dynamicGroupsByName: mutable.HashMap[String, choice.Group] = dynamicContext.dynamicGroupsByName
 
   def contextCache: BuilderContextCache = dynamicContext.contextCache
 
@@ -868,23 +868,15 @@ private[chisel3] object Builder extends LazyLogging {
 
   def elaborationTrace: ElaborationTrace = dynamicContext.elaborationTrace
 
-  /** Register a DynamicGroup or return an existing one with the same name.
+  /** Get or create a singleton Group for the given name.
+    * This ensures that all DynamicGroups with the same name share the same Group singleton.
     *
-    * @param group The DynamicGroup to register
-    * @return The registered group (either the new one or an existing one with the same name)
+    * @param name The name of the group
+    * @param groupFactory A function that creates the singleton Group object
+    * @return The singleton Group for this name
     */
-  def registerDynamicGroup(group: choice.DynamicGroup): choice.DynamicGroup = {
-    val name = group.name
-    dynamicGroups.getOrElseUpdate(name, group)
-  }
-
-  /** Look up a DynamicGroup by name.
-    *
-    * @param name The name of the group to look up
-    * @return Some(group) if found, None otherwise
-    */
-  def getDynamicGroup(name: String): Option[choice.DynamicGroup] = {
-    dynamicGroups.get(name)
+  def getOrCreateDynamicGroup(name: String, groupFactory: () => choice.Group): choice.Group = {
+    dynamicGroupsByName.getOrElseUpdate(name, groupFactory())
   }
 
   def forcedClock: Clock = currentClock.getOrElse(
