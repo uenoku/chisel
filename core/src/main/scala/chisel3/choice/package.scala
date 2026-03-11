@@ -59,10 +59,8 @@ package object choice {
     if (Builder.inContext) {
       Builder.getDynamicGroupInfo(groupName) match {
         case Some((existingGroup, existingCaseNames)) =>
-          // Group exists, verify case names match
-          val existingSet = existingCaseNames.toSet
-          val newSet = caseNames.toSet
-          if (existingSet != newSet) {
+          // Group exists, verify case names match exactly (including order)
+          if (existingCaseNames != caseNames) {
             throw new IllegalArgumentException(
               s"Error: DynamicGroup '$groupName' already exists with different case names.\n" +
               s"  Existing cases: ${existingCaseNames.mkString(", ")}\n" +
