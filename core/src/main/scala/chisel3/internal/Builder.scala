@@ -533,8 +533,11 @@ private[chisel3] class DynamicContext(
   val components = ArrayBuffer[Component]()
   val annotations = ArrayBuffer[() => Seq[Annotation]]()
   val layers = mutable.LinkedHashSet[layer.Layer]()
-  val options = mutable.LinkedHashSet[choice.Case]()
+  val options = mutable.LinkedHashMap[(choice.Group, String), choice.Case]()
   val domains = mutable.LinkedHashSet[domain.Domain]()
+  val dynamicGroupsByName = mutable.HashMap[String, (choice.Group, Seq[String])]()
+  val dynamicCasesByGroupAndName = mutable.HashMap[(choice.Group, String), choice.Case]()
+  val dynamicGroupInstances = mutable.HashMap[String, choice.DynamicGroup]()
   var currentModule: Option[BaseModule] = None
 
   // Views that do not correspond to a single ReferenceTarget and thus require renaming
@@ -611,8 +614,17 @@ private[chisel3] object Builder extends LazyLogging {
   def annotations: ArrayBuffer[() => Seq[Annotation]] = dynamicContext.annotations
 
   def layers:  mutable.LinkedHashSet[layer.Layer] = dynamicContext.layers
-  def options: mutable.LinkedHashSet[choice.Case] = dynamicContext.options
-  def domains: mutable.LinkedHashSet[domain.Domain] = dynamicContext.domains
+  def options: mutable.LinkedHashMap[(choice.Group, String), choice.Case] = dynamicContext.options
+  def addOption(option: choice.Case): Unit = {
+    dynamicContext.options.getOrElseUpdate((option.group, option.name), option)
+  }
+  def addOptions(options: Iterable[choice.Case]): Unit = options.foreach(addOption)
+  def domains:                                    mutable.LinkedHashSet[domain.Domain] = dynamicContext.domains
+
+  def dynamicGroupsByName: mutable.HashMap[String, (choice.Group, Seq[String])] = dynamicContext.dynamicGroupsByName
+  def dynamicCasesByGroupAndName: mutable.HashMap[(choice.Group, String), choice.Case] =
+    dynamicContext.dynamicCasesByGroupAndName
+  def dynamicGroupInstances: mutable.HashMap[String, choice.DynamicGroup] = dynamicContext.dynamicGroupInstances
 
   def contextCache: BuilderContextCache = dynamicContext.contextCache
 
@@ -865,6 +877,63 @@ private[chisel3] object Builder extends LazyLogging {
 
   def elaborationTrace: ElaborationTrace = dynamicContext.elaborationTrace
 
+  def getOrCreateDynamicGroup(name: String, caseNames: Seq[String], groupFactory: () => choice.Group): choice.Group = {
+    if (!inContext) return groupFactory()
+
+    dynamicGroupsByName.get(name) match {
+      case Some((existingGroup, existingCaseNames)) =>
+        if (existingCaseNames != caseNames) {
+          throw new IllegalArgumentException(
+            s"DynamicGroup '$name' already exists with different case names.\n" +
+              s"  Existing: ${existingCaseNames.mkString(", ")}\n" +
+              s"  New: ${caseNames.mkString(", ")}"
+          )
+        }
+        existingGroup
+      case None =>
+        val newGroup = groupFactory()
+        dynamicGroupsByName(name) = (newGroup, caseNames)
+        newGroup
+    }
+  }
+
+  def getOrCreateDynamicCase(group: choice.Group, name: String, caseFactory: () => choice.Case): choice.Case = {
+    if (!inContext) return caseFactory()
+    dynamicCasesByGroupAndName.getOrElseUpdate((group, name), caseFactory())
+  }
+
+  def getOrCreateDynamicGroupInstance[T <: choice.DynamicGroup](
+    name: String,
+    caseNames: Seq[String],
+    instanceFactory: () => T
+  ): T = {
+    if (!inContext) return instanceFactory()
+
+    // First check if a group with this name exists and validate case names
+    dynamicGroupsByName.get(name) match {
+      case Some((_, existingCaseNames)) =>
+        if (existingCaseNames != caseNames) {
+          throw new IllegalArgumentException(
+            s"DynamicGroup '$name' already exists with different case names.\n" +
+              s"  Existing: ${existingCaseNames.mkString(", ")}\n" +
+              s"  New: ${caseNames.mkString(", ")}"
+          )
+        }
+      case None => // Will be created by instanceFactory
+    }
+
+    dynamicGroupInstances.get(name) match {
+      case Some(existingInstance) =>
+        // Return the existing instance, casting to T
+        existingInstance.asInstanceOf[T]
+      case None =>
+        // Create the new instance and cache it
+        val newInstance = instanceFactory()
+        dynamicGroupInstances(name) = newInstance
+        newInstance
+    }
+  }
+
   def forcedClock: Clock = currentClock.getOrElse(
     // TODO add implicit clock change to Builder.exception
     throwException("Error: No implicit clock.")
@@ -1110,11 +1179,45 @@ private[chisel3] object Builder extends LazyLogging {
         Layer(l.sourceInfo, l.name, config, children.map(foldLayers).toSeq, l)
       }
 
-      val optionDefs = groupByIntoSeq(options)(opt => opt.group).map { case (optGroup, cases) =>
+      // Group by group name (string) instead of group object identity to handle
+      // cases where multiple Group objects with the same name are created (e.g., out-of-context)
+      val optionDefs = groupByIntoSeq(options.values)(opt => opt.group.name).map { case (groupName, cases) =>
+        // Use the first case's group for sourceInfo (all should have same name)
+        val representativeGroup = cases.head.group
+
+        // Get the set of case names
+        val caseNames = cases.map(_.name).toSet
+
+        // Deduplicate cases by name - ensure each case name appears only once
+        val uniqueCases = groupByIntoSeq(cases)(c => c.name).map { case (caseName, duplicateCases) =>
+          duplicateCases.head
+        }
+
+        // Validate: All Group objects with the same name must have been created with the same set of cases
+        // This check prevents mixing incompatible Group definitions
+        val allGroupCaseNames = cases.map(_.group).distinct.flatMap { group =>
+          // Try to get the case names that were registered for this group
+          dynamicGroupsByName.get(group.name).map(_._2)
+        }
+
+        // Check that if we have case names defined, they all match
+        if (allGroupCaseNames.nonEmpty) {
+          val firstCaseNames = allGroupCaseNames.head.toSet
+          allGroupCaseNames.tail.foreach { otherCaseNames =>
+            if (otherCaseNames.toSet != firstCaseNames) {
+              throw new IllegalArgumentException(
+                s"Group '$groupName' has inconsistent case definitions.\n" +
+                  s"  Expected cases: ${firstCaseNames.mkString(", ")}\n" +
+                  s"  Found cases: ${otherCaseNames.mkString(", ")}"
+              )
+            }
+          }
+        }
+
         DefOption(
-          optGroup.sourceInfo,
-          optGroup.name,
-          cases.map(optCase => DefOptionCase(optCase.sourceInfo, optCase.name))
+          representativeGroup.sourceInfo,
+          groupName,
+          uniqueCases.map(optCase => DefOptionCase(optCase.sourceInfo, optCase.name))
         )
       }
 
