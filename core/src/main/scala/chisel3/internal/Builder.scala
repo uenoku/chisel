@@ -535,6 +535,8 @@ private[chisel3] class DynamicContext(
   val layers = mutable.LinkedHashSet[layer.Layer]()
   val options = mutable.LinkedHashSet[choice.Case]()
   val domains = mutable.LinkedHashSet[domain.Domain]()
+  val dynamicGroupsByName = mutable.HashMap[String, Seq[String]]()
+  val dynamicGroupInstances = mutable.HashMap[String, choice.DynamicGroup]()
   var currentModule: Option[BaseModule] = None
 
   // Views that do not correspond to a single ReferenceTarget and thus require renaming
@@ -613,6 +615,9 @@ private[chisel3] object Builder extends LazyLogging {
   def layers:  mutable.LinkedHashSet[layer.Layer] = dynamicContext.layers
   def options: mutable.LinkedHashSet[choice.Case] = dynamicContext.options
   def domains: mutable.LinkedHashSet[domain.Domain] = dynamicContext.domains
+
+  def dynamicGroupsByName:    mutable.HashMap[String, Seq[String]] = dynamicContext.dynamicGroupsByName
+  def dynamicGroupInstances: mutable.HashMap[String, choice.DynamicGroup] = dynamicContext.dynamicGroupInstances
 
   def contextCache: BuilderContextCache = dynamicContext.contextCache
 
@@ -866,6 +871,18 @@ private[chisel3] object Builder extends LazyLogging {
   def elaborationTrace: ElaborationTrace = dynamicContext.elaborationTrace
 
   def getOrCreateDynamicGroup(name: String, caseNames: Seq[String], groupFactory: () => choice.Group): choice.Group = {
+    dynamicGroupsByName.get(name) match {
+      case Some(existingCaseNames) =>
+        if (existingCaseNames != caseNames) {
+          throw new IllegalArgumentException(
+            s"DynamicGroup '$name' already exists with different case names.\n" +
+              s"  Existing: ${existingCaseNames.mkString(", ")}\n" +
+              s"  New: ${caseNames.mkString(", ")}"
+          )
+        }
+      case None =>
+        dynamicGroupsByName(name) = caseNames
+    }
     groupFactory()
   }
 
@@ -874,7 +891,22 @@ private[chisel3] object Builder extends LazyLogging {
     caseNames: Seq[String],
     instanceFactory: () => T
   ): T = {
-    instanceFactory()
+    // Validate case names first (this will throw if incompatible)
+    dynamicGroupsByName.get(name) match {
+      case Some(existingCaseNames) =>
+        if (existingCaseNames != caseNames) {
+          throw new IllegalArgumentException(
+            s"DynamicGroup '$name' already exists with different case names.\n" +
+              s"  Existing: ${existingCaseNames.mkString(", ")}\n" +
+              s"  New: ${caseNames.mkString(", ")}"
+          )
+        }
+      case None =>
+        dynamicGroupsByName(name) = caseNames
+    }
+
+    // Now safe to get or create the instance
+    dynamicGroupInstances.getOrElseUpdate(name, instanceFactory()).asInstanceOf[T]
   }
 
   def forcedClock: Clock = currentClock.getOrElse(
@@ -1122,42 +1154,11 @@ private[chisel3] object Builder extends LazyLogging {
         Layer(l.sourceInfo, l.name, config, children.map(foldLayers).toSeq, l)
       }
 
-      // Group by group name (string) instead of group object identity to handle
-      // cases where multiple Group objects with the same name are created (e.g., out-of-context)
-      val optionDefs = groupByIntoSeq(options)(opt => opt.group.name).map { case (groupName, cases) =>
-        // Use the first case's group for sourceInfo (all should have same name)
-        val representativeGroup = cases.head.group
-
-        // Get the set of case names
-        val caseNames = cases.map(_.name).toSet
-
-        // Deduplicate cases by name - ensure each case name appears only once
-        val uniqueCases = groupByIntoSeq(cases)(c => c.name).map { case (caseName, duplicateCases) =>
-          duplicateCases.head
-        }
-
-        // Validate: All Group objects with the same name must have the same set of cases
-        // This check prevents mixing incompatible Group definitions (e.g., DynamicGroups with same name but different cases)
-        val distinctGroups = cases.map(_.group).distinct
-        if (distinctGroups.size > 1) {
-          // We have multiple Group objects with the same name - validate they have the same cases
-          val firstGroupCases = cases.filter(_.group == distinctGroups.head).map(_.name).toSet
-          distinctGroups.tail.foreach { otherGroup =>
-            val otherGroupCases = cases.filter(_.group == otherGroup).map(_.name).toSet
-            if (otherGroupCases != firstGroupCases) {
-              throw new IllegalArgumentException(
-                s"DynamicGroup '$groupName' already exists with different case names.\n" +
-                  s"  Existing: ${firstGroupCases.mkString(", ")}\n" +
-                  s"  New: ${otherGroupCases.mkString(", ")}"
-              )
-            }
-          }
-        }
-
+      val optionDefs = groupByIntoSeq(options)(opt => opt.group).map { case (optGroup, cases) =>
         DefOption(
-          representativeGroup.sourceInfo,
-          groupName,
-          uniqueCases.map(optCase => DefOptionCase(optCase.sourceInfo, optCase.name))
+          optGroup.sourceInfo,
+          optGroup.name,
+          cases.map(optCase => DefOptionCase(optCase.sourceInfo, optCase.name))
         )
       }
 
