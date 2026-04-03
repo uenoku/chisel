@@ -52,7 +52,7 @@ package object choice {
       throw new IllegalStateException("DynamicGroup was used before it was initialized")
     )
 
-    private def caseNames: Seq[String] = initializedCaseNames.getOrElse(
+    private[chisel3] def caseNames: Seq[String] = initializedCaseNames.getOrElse(
       throw new IllegalStateException("DynamicGroup was used before it was initialized")
     )
 

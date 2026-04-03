@@ -535,8 +535,8 @@ private[chisel3] class DynamicContext(
   val layers = mutable.LinkedHashSet[layer.Layer]()
   val options = mutable.LinkedHashSet[choice.Case]()
   val domains = mutable.LinkedHashSet[domain.Domain]()
-  // Maps group name to (case names in order, cached DynamicGroup instance)
-  val dynamicGroups = mutable.HashMap[String, (Seq[String], choice.DynamicGroup)]()
+  // Maps group name to cached DynamicGroup instance (case names are stored in the instance)
+  val dynamicGroups = mutable.HashMap[String, choice.DynamicGroup]()
   var currentModule: Option[BaseModule] = None
 
   // Views that do not correspond to a single ReferenceTarget and thus require renaming
@@ -616,7 +616,7 @@ private[chisel3] object Builder extends LazyLogging {
   def options: mutable.LinkedHashSet[choice.Case] = dynamicContext.options
   def domains: mutable.LinkedHashSet[domain.Domain] = dynamicContext.domains
 
-  def dynamicGroups: mutable.HashMap[String, (Seq[String], choice.DynamicGroup)] = dynamicContext.dynamicGroups
+  def dynamicGroups: mutable.HashMap[String, choice.DynamicGroup] = dynamicContext.dynamicGroups
 
   def contextCache: BuilderContextCache = dynamicContext.contextCache
 
@@ -870,11 +870,11 @@ private[chisel3] object Builder extends LazyLogging {
   def elaborationTrace: ElaborationTrace = dynamicContext.elaborationTrace
 
   def getOrCreateDynamicGroup(name: String, caseNames: Seq[String], groupFactory: () => choice.Group): choice.Group = {
-    dynamicGroups.get(name).foreach { case (existingCaseNames, _) =>
-      if (existingCaseNames != caseNames) {
+    dynamicGroups.get(name).foreach { existingInstance =>
+      if (existingInstance.caseNames != caseNames) {
         throw new IllegalArgumentException(
           s"DynamicGroup '$name' already exists with different case names or order.\n" +
-            s"  Existing: ${existingCaseNames.mkString(", ")}\n" +
+            s"  Existing: ${existingInstance.caseNames.mkString(", ")}\n" +
             s"  New: ${caseNames.mkString(", ")}"
         )
       }
@@ -888,12 +888,12 @@ private[chisel3] object Builder extends LazyLogging {
     instanceFactory: () => T
   ): T = {
     dynamicGroups.get(name) match {
-      case Some((existingCaseNames, existingInstance)) =>
+      case Some(existingInstance) =>
         // Validate and return existing instance
-        if (existingCaseNames != caseNames) {
+        if (existingInstance.caseNames != caseNames) {
           throw new IllegalArgumentException(
             s"DynamicGroup '$name' already exists with different case names or order.\n" +
-              s"  Existing: ${existingCaseNames.mkString(", ")}\n" +
+              s"  Existing: ${existingInstance.caseNames.mkString(", ")}\n" +
               s"  New: ${caseNames.mkString(", ")}"
           )
         }
@@ -901,7 +901,7 @@ private[chisel3] object Builder extends LazyLogging {
       case None =>
         // Create and cache new instance
         val newInstance = instanceFactory()
-        dynamicGroups(name) = (caseNames, newInstance)
+        dynamicGroups(name) = newInstance
         newInstance
     }
   }
@@ -1151,11 +1151,21 @@ private[chisel3] object Builder extends LazyLogging {
         Layer(l.sourceInfo, l.name, config, children.map(foldLayers).toSeq, l)
       }
 
-      val optionDefs = groupByIntoSeq(options)(opt => opt.group).map { case (optGroup, cases) =>
+      // Group by group name (string) instead of group object identity to handle
+      // cases where multiple Group objects with the same name are created (e.g., out-of-context)
+      val optionDefs = groupByIntoSeq(options)(opt => opt.group.name).map { case (groupName, cases) =>
+        // Use the first case's group for sourceInfo (all should have same name)
+        val representativeGroup = cases.head.group
+
+        // Deduplicate cases by name - ensure each case name appears only once
+        val uniqueCases = groupByIntoSeq(cases)(c => c.name).map { case (caseName, duplicateCases) =>
+          duplicateCases.head
+        }
+
         DefOption(
-          optGroup.sourceInfo,
-          optGroup.name,
-          cases.map(optCase => DefOptionCase(optCase.sourceInfo, optCase.name))
+          representativeGroup.sourceInfo,
+          groupName,
+          uniqueCases.map(optCase => DefOptionCase(optCase.sourceInfo, optCase.name))
         )
       }
 
