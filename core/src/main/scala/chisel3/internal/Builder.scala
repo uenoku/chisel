@@ -1151,6 +1151,24 @@ private[chisel3] object Builder extends LazyLogging {
           duplicateCases.head
         }
 
+        // Validate: All Group objects with the same name must have the same set of cases
+        // This catches conflicts between static Groups and DynamicGroups, or between multiple DynamicGroups
+        val allCaseNames = uniqueCases.map(_.name).toSet
+        val distinctGroups = cases.map(_.group).distinct
+        if (distinctGroups.size > 1) {
+          // We have multiple Group objects with the same name - validate they have the same cases
+          distinctGroups.tail.foreach { otherGroup =>
+            val otherCases = cases.filter(_.group == otherGroup).map(_.name).toSet
+            if (otherCases != allCaseNames) {
+              throw new IllegalArgumentException(
+                s"Group '$groupName' has inconsistent case definitions (static vs dynamic conflict?).\n" +
+                  s"  All cases: ${allCaseNames.mkString(", ")}\n" +
+                  s"  Cases from one group: ${otherCases.mkString(", ")}"
+              )
+            }
+          }
+        }
+
         DefOption(
           representativeGroup.sourceInfo,
           groupName,

@@ -222,4 +222,29 @@ class DynamicGroupSpec extends AnyFlatSpec with Matchers with FileCheck {
     exception.getMessage should include("ASIC")
     exception.getMessage should include("GPU")
   }
+
+  // Define a static group for testing static vs dynamic conflict
+  object StaticPlatform extends Group {
+    object FPGA extends Case
+    object ASIC extends Case
+  }
+
+  it should "reject conflict between static Group and DynamicGroup with same name" in {
+    class ModuleWithStaticGroup extends Module {
+      val inst1 = ModuleChoice(new VerifTarget)(Seq(StaticPlatform.FPGA -> new FPGATarget))
+      val platform = DynamicGroup[PlatformGpuType]("StaticPlatform") // Same name as static group, different cases
+      val inst2 = ModuleChoice(new VerifTarget)(Seq(platform.GPU -> new FPGATarget))
+      val io1 = IO(inst1.cloneType)
+      val io2 = IO(inst2.cloneType)
+      io1 <> inst1
+      io2 <> inst2
+    }
+
+    val exception = intercept[IllegalArgumentException] {
+      ChiselStage.emitCHIRRTL(new ModuleWithStaticGroup)
+    }
+
+    exception.getMessage should include("StaticPlatform")
+    exception.getMessage should include("inconsistent case definitions")
+  }
 }
