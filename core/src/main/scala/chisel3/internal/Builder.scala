@@ -869,7 +869,7 @@ private[chisel3] object Builder extends LazyLogging {
 
   def elaborationTrace: ElaborationTrace = dynamicContext.elaborationTrace
 
-  def getOrCreateDynamicGroup(name: String, caseNames: Seq[String], groupFactory: () => choice.Group): choice.Group = {
+  private def validateDynamicGroupCases(name: String, caseNames: Seq[String]): Unit = {
     dynamicGroups.get(name).foreach { existingInstance =>
       if (existingInstance.caseNames != caseNames) {
         throw new IllegalArgumentException(
@@ -879,6 +879,10 @@ private[chisel3] object Builder extends LazyLogging {
         )
       }
     }
+  }
+
+  def getOrCreateDynamicGroup(name: String, caseNames: Seq[String], groupFactory: () => choice.Group): choice.Group = {
+    validateDynamicGroupCases(name, caseNames)
     groupFactory()
   }
 
@@ -887,23 +891,8 @@ private[chisel3] object Builder extends LazyLogging {
     caseNames: Seq[String],
     instanceFactory: () => T
   ): T = {
-    dynamicGroups.get(name) match {
-      case Some(existingInstance) =>
-        // Validate and return existing instance
-        if (existingInstance.caseNames != caseNames) {
-          throw new IllegalArgumentException(
-            s"DynamicGroup '$name' already exists with different case names or order.\n" +
-              s"  Existing: ${existingInstance.caseNames.mkString(", ")}\n" +
-              s"  New: ${caseNames.mkString(", ")}"
-          )
-        }
-        existingInstance.asInstanceOf[T]
-      case None =>
-        // Create and cache new instance
-        val newInstance = instanceFactory()
-        dynamicGroups(name) = newInstance
-        newInstance
-    }
+    validateDynamicGroupCases(name, caseNames)
+    dynamicGroups.getOrElseUpdate(name, instanceFactory()).asInstanceOf[T]
   }
 
   def forcedClock: Clock = currentClock.getOrElse(
