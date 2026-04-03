@@ -42,9 +42,9 @@ class DynamicGroupSpec extends AnyFlatSpec with Matchers with FileCheck {
   }
 
   it should "emit options and cases with DynamicGroup" in {
-    val platform = DynamicGroup[PlatformType]("Platform")
-
     class ModuleWithDynamicChoice extends Module {
+      val platform = DynamicGroup[PlatformType]("Platform")
+
       val inst = ModuleChoice(new VerifTarget)(
         Seq(
           platform.FPGA -> new FPGATarget,
@@ -124,9 +124,9 @@ class DynamicGroupSpec extends AnyFlatSpec with Matchers with FileCheck {
   }
 
   it should "work with trait-based API" in {
-    val platform = DynamicGroup[PlatformType]("Platform")
-
     class ModuleWithTraitAPI extends Module {
+      val platform = DynamicGroup[PlatformType]("Platform")
+
       val inst = ModuleChoice(new VerifTarget)(
         Seq(
           platform.FPGA -> new FPGATarget,
@@ -147,5 +147,79 @@ class DynamicGroupSpec extends AnyFlatSpec with Matchers with FileCheck {
            |CHECK-NEXT: FPGA => FPGATarget
            |CHECK-NEXT: ASIC => ASICTarget""".stripMargin
       )
+  }
+
+  it should "allow same DynamicGroup name across different submodules" in {
+    class SubModule1 extends Module {
+      val platform = DynamicGroup[PlatformType]("Platform")
+      val inst = ModuleChoice(new VerifTarget)(Seq(platform.FPGA -> new FPGATarget))
+      val io = IO(inst.cloneType)
+      io <> inst
+    }
+
+    class SubModule2 extends Module {
+      val platform = DynamicGroup[PlatformType]("Platform") // Same name, same cases - should work
+      val inst = ModuleChoice(new VerifTarget)(Seq(platform.ASIC -> new ASICTarget))
+      val io = IO(inst.cloneType)
+      io <> inst
+    }
+
+    class TopModule extends Module {
+      val sub1 = Module(new SubModule1)
+      val sub2 = Module(new SubModule2)
+      val io1 = IO(sub1.io.cloneType)
+      val io2 = IO(sub2.io.cloneType)
+      io1 <> sub1.io
+      io2 <> sub2.io
+    }
+
+    ChiselStage
+      .emitCHIRRTL(new TopModule)
+      .fileCheck()(
+        """|CHECK: option Platform :
+           |CHECK-NEXT: FPGA
+           |CHECK-NEXT: ASIC
+           |CHECK-NOT: option Platform :
+           |CHECK: module SubModule1 :
+           |CHECK: instchoice inst of {{VerifTarget[_0-9]*}}, Platform :
+           |CHECK-NEXT: FPGA => FPGATarget
+           |CHECK: module SubModule2 :
+           |CHECK: instchoice inst of {{VerifTarget[_0-9]*}}, Platform :
+           |CHECK-NEXT: ASIC => ASICTarget""".stripMargin
+      )
+  }
+
+  it should "reject DynamicGroup with same name but different cases across submodules" in {
+    class SubModule1 extends Module {
+      val platform = DynamicGroup[PlatformType]("Platform")
+      val inst = ModuleChoice(new VerifTarget)(Seq(platform.FPGA -> new FPGATarget))
+      val io = IO(inst.cloneType)
+      io <> inst
+    }
+
+    class SubModule2 extends Module {
+      val platform = DynamicGroup[PlatformGpuType]("Platform") // Different cases - should fail
+      val inst = ModuleChoice(new VerifTarget)(Seq(platform.GPU -> new FPGATarget))
+      val io = IO(inst.cloneType)
+      io <> inst
+    }
+
+    class TopModule extends Module {
+      val sub1 = Module(new SubModule1)
+      val sub2 = Module(new SubModule2)
+      val io1 = IO(sub1.io.cloneType)
+      val io2 = IO(sub2.io.cloneType)
+      io1 <> sub1.io
+      io2 <> sub2.io
+    }
+
+    val exception = intercept[IllegalArgumentException] {
+      ChiselStage.emitCHIRRTL(new TopModule)
+    }
+
+    exception.getMessage should include("DynamicGroup 'Platform' already exists with different case names")
+    exception.getMessage should include("FPGA")
+    exception.getMessage should include("ASIC")
+    exception.getMessage should include("GPU")
   }
 }
