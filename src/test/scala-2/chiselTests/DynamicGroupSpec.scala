@@ -102,7 +102,7 @@ class DynamicGroupSpec extends AnyFlatSpec with Matchers with FileCheck {
       ChiselStage.emitCHIRRTL(new ModuleWithMismatchedCases)
     }
 
-    exception.getMessage should include("DynamicGroup 'Platform' already exists with different case names")
+    exception.getMessage should include("Group 'Platform' has inconsistent case definitions")
     exception.getMessage should include("FPGA")
     exception.getMessage should include("ASIC")
     exception.getMessage should include("GPU")
@@ -118,7 +118,7 @@ class DynamicGroupSpec extends AnyFlatSpec with Matchers with FileCheck {
       ChiselStage.emitCHIRRTL(new ModuleWithDifferentOrder)
     }
 
-    exception.getMessage should include("DynamicGroup 'Platform' already exists with different case")
+    exception.getMessage should include("Group 'Platform' has inconsistent case definitions")
     exception.getMessage should include("FPGA")
     exception.getMessage should include("ASIC")
   }
@@ -217,7 +217,7 @@ class DynamicGroupSpec extends AnyFlatSpec with Matchers with FileCheck {
       ChiselStage.emitCHIRRTL(new TopModule)
     }
 
-    exception.getMessage should include("DynamicGroup 'Platform' already exists with different case names")
+    exception.getMessage should include("Group 'Platform' has inconsistent case definitions")
     exception.getMessage should include("FPGA")
     exception.getMessage should include("ASIC")
     exception.getMessage should include("GPU")

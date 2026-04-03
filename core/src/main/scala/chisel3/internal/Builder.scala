@@ -869,15 +869,20 @@ private[chisel3] object Builder extends LazyLogging {
 
   def elaborationTrace: ElaborationTrace = dynamicContext.elaborationTrace
 
+  private def validateGroupCases(groupName: String, expectedCases: Seq[String], actualCases: Seq[String], context: String = ""): Unit = {
+    if (expectedCases != actualCases) {
+      val contextMsg = if (context.nonEmpty) s" ($context)" else ""
+      throw new IllegalArgumentException(
+        s"Group '$groupName' has inconsistent case definitions$contextMsg.\n" +
+          s"  Expected cases: ${expectedCases.mkString(", ")}\n" +
+          s"  Found cases: ${actualCases.mkString(", ")}"
+      )
+    }
+  }
+
   private def validateDynamicGroupCases(name: String, caseNames: Seq[String]): Unit = {
     dynamicGroups.get(name).foreach { existingInstance =>
-      if (existingInstance.caseNames != caseNames) {
-        throw new IllegalArgumentException(
-          s"DynamicGroup '$name' already exists with different case names or order.\n" +
-            s"  Existing: ${existingInstance.caseNames.mkString(", ")}\n" +
-            s"  New: ${caseNames.mkString(", ")}"
-        )
-      }
+      validateGroupCases(name, existingInstance.caseNames, caseNames, "DynamicGroup already exists with different case names or order")
     }
   }
 
@@ -1150,22 +1155,16 @@ private[chisel3] object Builder extends LazyLogging {
         val uniqueCases = groupByIntoSeq(cases)(c => c.name).map { case (caseName, duplicateCases) =>
           duplicateCases.head
         }
+        val allCaseNames = uniqueCases.map(_.name)
 
-        // Validate: All Group objects with the same name must have the same set of cases
+        // Validate: All Group objects with the same name must have the same cases (in same order)
         // This catches conflicts between static Groups and DynamicGroups, or between multiple DynamicGroups
-        val allCaseNames = uniqueCases.map(_.name).toSet
         val distinctGroups = cases.map(_.group).distinct
         if (distinctGroups.size > 1) {
           // We have multiple Group objects with the same name - validate they have the same cases
           distinctGroups.tail.foreach { otherGroup =>
-            val otherCases = cases.filter(_.group == otherGroup).map(_.name).toSet
-            if (otherCases != allCaseNames) {
-              throw new IllegalArgumentException(
-                s"Group '$groupName' has inconsistent case definitions (static vs dynamic conflict?).\n" +
-                  s"  All cases: ${allCaseNames.mkString(", ")}\n" +
-                  s"  Cases from one group: ${otherCases.mkString(", ")}"
-              )
-            }
+            val otherCases = cases.filter(_.group == otherGroup).map(_.name).distinct
+            validateGroupCases(groupName, allCaseNames, otherCases, "static vs dynamic conflict?")
           }
         }
 
